@@ -1,0 +1,426 @@
+---
+title: "Caribbean COVID-19 TRACKER"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    social: [ "twitter", "facebook", "menu", "instagram" ]
+    theme: flatly
+  
+    
+    
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(plotly)
+library(leaflet)
+library(shinyWidgets)
+
+
+
+theme_jr<-function(){
+  theme_minimal(base_size = 12, base_family = "Calibri")%+replace% 
+    theme(
+      plot.title = element_text(face = "bold", size=24, hjust = 0),
+      plot.subtitle = element_text(size = 16, hjust = 0),
+      plot.caption = element_text(hjust = 0),
+      panel.grid = element_line(linetype = "dashed", colour = "grey92"),
+      panel.grid.minor = element_blank()
+    )
+}
+
+
+###read data from github
+cases_data_url <-
+  "https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+cases_data <- read.csv(url(cases_data_url))
+
+death_data_url <-
+  "https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
+death_data <- read.csv(url(death_data_url))
+
+
+
+recov_data_url <-
+  "https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv"
+recov_data <- read.csv(url(recov_data_url))
+
+
+
+
+#####reshape data to long format##########
+cases_data <-
+  cases_data %>% pivot_longer(
+    -c(Province.State, Country.Region, Lat, Long),
+    names_to = "date",
+    values_to = "cases"
+  )
+
+death_data <-
+  death_data %>% pivot_longer(
+    -c(Province.State, Country.Region, Lat, Long),
+    names_to = "date",
+    values_to = "deaths"
+  )
+
+
+
+
+recov_data <-
+  recov_data %>% pivot_longer(
+    -c(Province.State, Country.Region, Lat, Long),
+    names_to = "date",
+    values_to = "recovs"
+  )
+
+
+covid_data <- cbind(cases_data, death_data$deaths)
+
+
+
+
+
+
+
+####convert date variable from character to date#####
+
+covid_data$date <-
+  gsub("[^0-9.]", "", covid_data$date) #removes the X that prefixed teh date
+covid_data$date <-
+  gsub('\\.', '-', covid_data$date) #replace the ".", with a "-"
+covid_data$date <-
+  as.Date.character(covid_data$date, "%m-%d-%y") ##covert to date
+
+
+
+recov_data$date <-
+  gsub("[^0-9.]", "", recov_data$date) #removes the X that prefixed teh date
+recov_data$date <-
+  gsub('\\.', '-', recov_data$date) #replace the ".", with a "-"
+recov_data$date <-
+  as.Date.character(recov_data$date, "%m-%d-%y") ##covert to date
+
+
+
+######filter for caribbean countries#######
+
+carib <-
+  c(
+    "Cuba",
+    "Dominican Republic",
+    "Haiti",
+    "Puerto Rico",
+    "Jamaica",
+    "Trinidad and Tobago",
+    "Guyana",
+    "Suriname",
+    "Guadelope",
+    "Martinique",
+    "Bahamas",
+    "Belize",
+    "Barbados",
+    "Saint Lucia",
+    "Curacao",
+    "Aruba",
+    "Saint Vincent and the Grenadines",
+    "British Virgin Islands",
+    "Grenada",
+    "Antigua and Barbuda",
+    "Dominica",
+    "Cayman Islands",
+    "Saint Kitts and Nevis",
+    "Sint Maarten",
+    "Turks and Caicos Islands",
+    "Anguilla",
+    "Montserrat",
+    "Saint Barthelemy",
+    "Venezuela",
+    "Bermuda"
+  ) #list of caribbean countries
+
+carib_data <-
+  covid_data %>% filter(Country.Region %in% carib |
+                          Province.State %in% carib) #filter global data fro caribbean countries using list
+carib_data$Province.State <-
+  as.character(carib_data$Province.State) #convert factor to character
+carib_data$Country.Region <-
+  as.character(carib_data$Country.Region) #convert factor to character
+carib_data$country <-
+  if_else(
+    carib_data$Province.State == "",
+    carib_data$Country.Region,
+    carib_data$Province.State
+  )#create country variable combining country and province where applicable
+
+
+
+recov_data <-
+  recov_data %>% filter(Country.Region %in% carib |
+                          Province.State %in% carib) #filter global data fro caribbean countries using list
+recov_data$Province.State <-
+  as.character(recov_data$Province.State) #convert factor to character
+recov_data$Country.Region <-
+  as.character(recov_data$Country.Region) #convert factor to character
+recov_data$country <-
+  if_else(
+    recov_data$Province.State == "",
+    recov_data$Country.Region,
+    recov_data$Province.State
+  )#create country variable combining country and province where applicable
+
+
+
+
+
+
+carib_data$logcases<-log(carib_data$cases)
+
+######create dataframe with total cases per day######
+
+carib_cases_by_date <-
+  carib_data %>% group_by(date) %>% summarise(total_cases = sum(cases))
+carib_deaths_by_date <-
+  carib_data %>% group_by(date) %>% summarise(total_deaths = sum(`death_data$deaths`))
+
+
+######create dataframe with toal cases per day per country
+
+cases_by_country <-
+  carib_data %>% group_by(country, date) %>% filter(cases>0)%>%summarise(total = sum(cases))
+deaths_by_country <-
+  carib_data %>% group_by(country, date) %>% summarise(total = sum(`death_data$deaths`))
+
+today <- max(carib_data$date)
+
+
+carib_data_today<-carib_data%>%filter(date==today)%>%select(country, cases, `death_data$deaths`, Lat, Long)
+
+plot_data <-reactive({carib_data%>%filter(country %in% input$country)})
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+COUNTRY DATA
+=====================================
+Row {data-width=350}
+-----------------------------------------------------------------------
+
+### Confirmed Cases
+
+```{r}
+
+t_cases<-carib_data%>%filter(date==today)%>%summarise(sum(cases))
+valueBox(t_cases)
+
+```
+
+
+### Deaths
+
+```{r}
+t_deaths<-carib_data%>%filter(date==today)%>%summarise(sum(`death_data$deaths`))
+valueBox(t_deaths)
+
+```
+
+### Recoveries
+
+```{r}
+total_recov<-recov_data%>%filter(date==today)%>%summarise(sum(recovs))
+valueBox(total_recov)
+
+```
+
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+
+```{r}
+
+p("A daily tracker of the COVID-19 pandemic cases and other data from the countries in the Caribbean.")
+
+p(" View and compare trends by selecting either the Confirmed Cases or Deaths tab and then Country(ies)")
+
+###selectInput("outcome", label = "Metric",
+            ###choices = c("Confirmed Cases"="cases","Deaths"="'death_data$deaths'"))
+
+
+pickerInput(
+  "country",
+  label = "Country:",
+  choices = c(
+    "Cuba",
+    "Haiti",
+    "Dominican Republic",
+    "Jamaica",
+    "Trinidad and Tobago",
+    "Guyana",
+    "Suriname",
+    "Guadelope",
+    "Martinique",
+    "Bahamas",
+    "Belize",
+    "Barbados",
+    "Saint Lucia",
+    "Curacao",
+    "Aruba",
+    "Saint Vincent and the Grenadines",
+    "British Virgin Islands",
+    "Grenada",
+    "Antigua and Barbuda",
+    "Dominica",
+    "Cayman Islands",
+    "Saint Kitts and Nevis",
+    "Sint Maarten",
+    "Turks and Caicos Islands",
+    "Anguilla",
+    "Montserrat",
+    "Saint Barthelemy",
+    "Venezuela",
+    "Bermuda"
+  ), options = list(`actions-box` = TRUE), selected = "Antigua and Barbuda", multiple = T
+)
+
+
+p("Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.  ")
+
+p("The tracker will be updated daily and is provided for informational purposes only.")
+
+p("Please send questions, queries or comments to sunrumdata@gmail.com")
+
+  
+  
+  
+  
+
+ 
+```
+
+
+Column{.tabset .tabset-fade}
+-------------------------------------
+### Confirmed Cases
+
+```{r}
+
+
+
+
+renderPlotly({
+  p3<-ggplot() +
+      geom_line(data = plot_data(), aes(
+      x = date, y = cases, colour = country
+    )) +
+      geom_point(data = plot_data(),
+                 aes(
+                   x = date,
+                   y = cases,
+                   colour = country
+                 )) +
+      theme_jr() +
+      labs(
+        title = "",
+        caption = "Source: JHU CCSE Data Repository",
+        subtitle = "As at March 25th, 2020",
+        y = "Confirmed Cases",
+        x = "Date"
+      )
+  ggplotly(p3)
+})
+
+```
+
+### Deaths
+
+```{r}
+
+
+
+
+renderPlotly({
+  p4<-ggplot() +
+      geom_line(data = plot_data(), aes(
+      x = date, y = `death_data$deaths`, colour = country
+    )) +
+      geom_point(data = plot_data(),
+                 aes(
+                   x = date,
+                   y = `death_data$deaths`,
+                   colour = country
+                 )) +
+      theme_jr() +
+      labs(
+        title = "",
+        caption = "Source: JHU CCSE Data Repository",
+        subtitle = "As at March 25th, 2020",
+        y = "Deaths",
+        x = "Date"
+      )
+  ggplotly(p4)
+})
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+```{r}
+
+```
+
+
+TABLE
+=====================================
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+```{r}
+p("Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.  ")
+
+p("The tracker will be updated daily and is provided for informational purposes only.")
+
+p("Please send questions, queries or comments to sunrumdata@gmail.com")
+
+
+
+```
+
+
+
+
+Row
+-----------------------------------------------------------------------
+```{r}
+
+DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`), colnames = c("Country", "Confirmed Cases", "Deaths"), class = "cell-border stripe", style = "bootstrap", rownames = FALSE)
+```
+
+
+
+```{r}
+
+
+
+```
+
+
+
+
