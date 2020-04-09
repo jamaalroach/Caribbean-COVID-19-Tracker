@@ -4,7 +4,9 @@ output:
   flexdashboard::flex_dashboard:
     orientation: row
     social: [ "twitter", "facebook", "instagram", "whatsapp" ]
-    theme: spacelab
+    theme: bootstrap
+    logo: small.png
+    
   
     
     
@@ -21,6 +23,7 @@ library(readr)
 library(plotly)
 library(leaflet)
 library(shinyWidgets)
+library(reactable)
 
 
 
@@ -201,6 +204,10 @@ today <- max(carib_data$date)
 
 carib_data_today<-carib_data%>%filter(date==today)%>%select(country, cases, `death_data$deaths`, Lat, Long)
 
+recov_data_today<-recov_data%>%filter(date==today)%>%select(country, recovs)
+
+carib_data_today<-left_join(carib_data_today, recov_data_today, by="country")
+
 plot_data <-reactive({
     carib_data%>%filter(country %in% input$country)})
 
@@ -210,19 +217,9 @@ plot_data <-reactive({
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-COUNTRY DATA
+TABLE
 =====================================
+
 Row {data-width=350}
 -----------------------------------------------------------------------
 
@@ -231,7 +228,7 @@ Row {data-width=350}
 ```{r}
 
 t_cases<-carib_data%>%filter(date==today)%>%summarise(sum(cases))
-valueBox(t_cases, color = "warning")
+valueBox(t_cases, color = "warning", icon ="fa-file-medical")
 
 ```
 
@@ -240,7 +237,7 @@ valueBox(t_cases, color = "warning")
 
 ```{r}
 t_deaths<-carib_data%>%filter(date==today)%>%summarise(sum(`death_data$deaths`))
-valueBox(t_deaths, color = "danger")
+valueBox(t_deaths, color = "danger" , icon ="fa-file-medical")
 
 ```
 
@@ -248,159 +245,20 @@ valueBox(t_deaths, color = "danger")
 
 ```{r}
 total_recov<-recov_data%>%filter(date==today)%>%summarise(sum(recovs))
-valueBox(total_recov, color = "success")
+valueBox(total_recov, color = "success", icon ="fa-file-medical")
 
 ```
+
+
 
 
 Inputs {.sidebar data-width=300}
 -----------------------------------------------------------------------
-
-```{r}
-
-
-p("A daily tracker of the COVID-19 pandemic cases and other data from the countries in the Caribbean.")
-
-p(tags$b(" View and compare trends by selecting either the Confirmed Cases or Deaths tab and then Country(ies)."))
-
-p(tags$b("Error message indicates that the country has no cases / deaths.", style="color:red"))
-
-###selectInput("outcome", label = "Metric",
-            ###choices = c("Confirmed Cases"="cases","Deaths"="'death_data$deaths'"))
-
-
-pickerInput(
-  "country",
-  label = "Country:",
-  choices = c(
-    "Cuba",
-    "Haiti",
-    "Dominican Republic",
-    "Jamaica",
-    "Trinidad and Tobago",
-    "Guyana",
-    "Suriname",
-    "Guadelope",
-    "Martinique",
-    "Bahamas",
-    "Belize",
-    "Barbados",
-    "Saint Lucia",
-    "Curacao",
-    "Aruba",
-    "Saint Vincent and the Grenadines",
-    "British Virgin Islands",
-    "Grenada",
-    "Antigua and Barbuda",
-    "Dominica",
-    "Cayman Islands",
-    "Saint Kitts and Nevis",
-    "Sint Maarten",
-    "Turks and Caicos Islands",
-    "Anguilla",
-    "Montserrat",
-    "Saint Barthelemy",
-    "Venezuela",
-    "Bermuda"
-  ), options = list(`actions-box` = TRUE), selected = "Antigua and Barbuda", multiple = T
-)
-
-
-p("Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.  ")
-
-p("The tracker will be updated daily and is provided for informational purposes only.")
-
-
-
-p("Please send questions, queries or comments to sunrumdata@gmail.com.")
-
-  
-  
-  
-  
-
- 
-```
-
-
-Column{.tabset .tabset-fade}
--------------------------------------
-### Confirmed Cases
-
 ```{r}
 
 
 
 
-renderPlotly({
-  p3<-ggplot() +
-      geom_line(data = plot_data()%>%filter(cases>0), aes(
-      x = date, y = cases, colour = country
-    )) +
-      geom_point(data = plot_data()%>%filter(cases>0),
-                 aes(
-                   x = date,
-                   y = cases,
-                   colour = country
-                 )) +
-      theme_jr() +
-      labs(
-        title = "",
-        caption = "Source: JHU CCSE Data Repository",
-        subtitle = "As at March 25th, 2020",
-        y = "Confirmed Cases",
-        x = "Date"
-      )
-  ggplotly(p3)
-})
-
-```
-
-### Deaths
-
-```{r}
-
-
-
-
-renderPlotly({
-  p4<-ggplot() +
-      geom_line(data = plot_data()%>%filter(`death_data$deaths`>0), aes(
-      x = date, y = `death_data$deaths`, colour = country
-    )) +
-      geom_point(data = plot_data()%>%filter(`death_data$deaths`>0),
-                 aes(
-                   x = date,
-                   y = `death_data$deaths`,
-                   colour = country
-                 )) +
-      theme_jr() +
-      labs(
-        title = "",
-        caption = "Source: JHU CCSE Data Repository",
-        subtitle = "As at March 25th, 2020",
-        y = "Deaths",
-        x = "Date"
-      )
-  ggplotly(p4)
-})
-
-```
-
-Row
------------------------------------------------------------------------
-
-```{r}
-
-```
-
-
-TABLE
-=====================================
-
-Inputs {.sidebar data-width=300}
------------------------------------------------------------------------
-```{r}
 p("Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.  ")
 
 p("The tracker will be updated daily and is provided for informational purposes only.")
@@ -418,16 +276,21 @@ Row
 -----------------------------------------------------------------------
 ```{r}
 
-DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`), colnames = c("Country", "Confirmed Cases", "Deaths"), class = "cell-border stripe", style = "bootstrap", rownames = FALSE)
-```
-
-
-
-```{r}
-
+DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`, recovs), colnames = c("Country", "Confirmed Cases", "Deaths", "Recoveries"),rownames=FALSE, style = "bootstrap", options = list(
+ columnDefs = list(list(className = 'dt-center', targets =0:3)), pageLength = 28))
 
 
 ```
+
+
+
+
+
+
+
+
+
+
 
 
 
