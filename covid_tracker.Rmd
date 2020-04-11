@@ -1,16 +1,13 @@
 ---
 title: "Caribbean COVID-19 TRACKER"
-output: 
+resource_files:
+- google_analytics.html
+runtime: shiny
+output:
   flexdashboard::flex_dashboard:
     orientation: row
-    social: [ "menu" ]
+    social: menu
     theme: bootstrap
-    
-    
-  
-    
-    
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -21,11 +18,10 @@ library(flexdashboard)
 library(tidyverse)
 library(readr)
 library(plotly)
-library(leaflet)
 library(shinyWidgets)
 library(shiny)
 
-
+tags$head(includeHTML(("google_analytics.html")))
 
 theme_jr<-function(){
   theme_minimal(base_size = 12, base_family = "Calibri")%+replace% 
@@ -274,7 +270,7 @@ DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`, re
 ```
 
 
-PLOTS
+COUNTRY TRENDS
 =====================================
 
 
