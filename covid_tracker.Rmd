@@ -21,7 +21,7 @@ library(plotly)
 library(shinyWidgets)
 library(shiny)
 
-tags$head(includeHTML(("google_analytics.html")))
+includeHTML(("google_analytics.html")) #call to google analytics tracking script
 
 theme_jr<-function(){
   theme_minimal(base_size = 12, base_family = "Calibri")%+replace% 
