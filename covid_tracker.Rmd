@@ -3,9 +3,9 @@ title: "Caribbean COVID-19 TRACKER"
 output: 
   flexdashboard::flex_dashboard:
     orientation: row
-    social: [ "twitter", "facebook", "instagram", "whatsapp" ]
+    social: [ "menu" ]
     theme: bootstrap
-    logo: small.png
+    
     
   
     
@@ -17,13 +17,13 @@ runtime: shiny
 library(flexdashboard)
 ```
 
-```{r}
+```{r global}
 library(tidyverse)
 library(readr)
 library(plotly)
 library(leaflet)
 library(shinyWidgets)
-library(reactable)
+library(shiny)
 
 
 
@@ -208,8 +208,8 @@ recov_data_today<-recov_data%>%filter(date==today)%>%select(country, recovs)
 
 carib_data_today<-left_join(carib_data_today, recov_data_today, by="country")
 
-plot_data <-reactive({
-    carib_data%>%filter(country %in% input$country)})
+colnames(carib_data)<-c("Province", "Region", "Lat", "Long", "Date", "Confirmed Cases", "Deaths", "Country", "Log_Cases" )
+
 
 
 
@@ -227,7 +227,7 @@ Row {data-width=350}
 
 ```{r}
 
-t_cases<-carib_data%>%filter(date==today)%>%summarise(sum(cases))
+t_cases<-carib_data%>%filter(Date==today)%>%summarise(sum(`Confirmed Cases`))
 valueBox(t_cases, color = "warning", icon ="fa-file-medical")
 
 ```
@@ -236,8 +236,8 @@ valueBox(t_cases, color = "warning", icon ="fa-file-medical")
 ### Deaths
 
 ```{r}
-t_deaths<-carib_data%>%filter(date==today)%>%summarise(sum(`death_data$deaths`))
-valueBox(t_deaths, color = "danger" , icon ="fa-file-medical")
+t_deaths<-carib_data%>%filter(Date==today)%>%summarise(sum(Deaths))
+valueBox(t_deaths, color = "danger" , icon ="fa-file-alt")
 
 ```
 
@@ -245,30 +245,21 @@ valueBox(t_deaths, color = "danger" , icon ="fa-file-medical")
 
 ```{r}
 total_recov<-recov_data%>%filter(date==today)%>%summarise(sum(recovs))
-valueBox(total_recov, color = "success", icon ="fa-file-medical")
+valueBox(total_recov, color = "success", icon ="fa-file-image")
 
 ```
 
 
 
 
-Inputs {.sidebar data-width=300}
+Column {.sidebar}
 -----------------------------------------------------------------------
-```{r}
 
+Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.
 
+The tracker will be updated daily and is provided for informational purposes only.
 
-
-p("Source data from John Hopkins University CSSE 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository.  ")
-
-p("The tracker will be updated daily and is provided for informational purposes only.")
-
-p("Please send questions, queries or comments to sunrumdata@gmail.com")
-
-
-
-```
-
+Please send questions, queries or comments to sunrumdata@gmail.com
 
 
 
@@ -283,10 +274,101 @@ DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`, re
 ```
 
 
+PLOTS
+=====================================
+
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+
+```{r}
+
+varSelectInput("metric","Choose Confirmed Cases or Deaths", data=carib_data%>%select(`Confirmed Cases`, Deaths), selected = "cases")
+
+```
 
 
 
 
+```{r}
+pickerInput(
+              "country",
+              label = "Select your choice of Country/Countries to view and compare trends:",
+              choices = c(
+                "Cuba",
+                "Haiti",
+                "Dominican Republic",
+                "Jamaica",
+                "Trinidad and Tobago",
+                "Guyana",
+                "Suriname",
+                "Guadelope",
+                "Martinique",
+                "Bahamas",
+                "Belize",
+                "Barbados",
+                "Saint Lucia",
+                "Curacao",
+                "Aruba",
+                "Saint Vincent and the Grenadines",
+                "British Virgin Islands",
+                "Grenada",
+                "Antigua and Barbuda",
+                "Dominica",
+                "Cayman Islands",
+                "Saint Kitts and Nevis",
+                "Sint Maarten",
+                "Turks and Caicos Islands",
+                "Anguilla",
+                "Montserrat",
+                "Saint Barthelemy",
+                "Venezuela",
+                "Bermuda"
+              ),
+              options = list(`actions-box` = TRUE),
+              selected = "Antigua and Barbuda",
+              multiple = T)
+```
+
+
+
+
+Column
+-----------------------------------------------------------------------
+
+### Country Plots
+
+```{r}
+
+
+
+plot_data <-reactive({
+    carib_data%>%filter(Country %in% input$country)})
+
+
+
+
+
+ 
+renderPlotly({
+p3<-ggplot() +
+geom_line(data = plot_data(), aes(
+      x = Date, y = !!input$metric, colour = Country
+    )) +
+      geom_point(data = plot_data(),
+                 aes(
+                   x = Date,
+                   y = !!input$metric,
+                   colour = Country
+                 )) +
+      theme_jr() 
+
+  ggplotly(p3)%>%
+layout(legend = list(orientation = "h",   # show entries horizontally
+                     xanchor = "center",  # use center of legend as anchor
+                     x = 0.1, y=0.95))
+})
 
 
 
