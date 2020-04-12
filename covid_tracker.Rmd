@@ -23,6 +23,9 @@ library(shiny)
 
 includeHTML(("google_analytics.html")) #call to google analytics tracking script
 
+
+####### custom ggplot theme ########
+
 theme_jr<-function(){
   theme_minimal(base_size = 12, base_family = "Calibri")%+replace% 
     theme(
@@ -35,7 +38,8 @@ theme_jr<-function(){
 }
 
 
-###read data from github
+####### fecth data from JHU CCSE github #########
+
 cases_data_url <-
   "https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
 cases_data <- read.csv(url(cases_data_url))
@@ -54,6 +58,7 @@ recov_data <- read.csv(url(recov_data_url))
 
 
 #####reshape data to long format##########
+
 cases_data <-
   cases_data %>% pivot_longer(
     -c(Province.State, Country.Region, Lat, Long),
@@ -80,9 +85,6 @@ recov_data <-
 
 
 covid_data <- cbind(cases_data, death_data$deaths)
-
-
-
 
 
 
@@ -119,7 +121,7 @@ carib <-
     "Trinidad and Tobago",
     "Guyana",
     "Suriname",
-    "Guadelope",
+    "Guadeloupe",
     "Martinique",
     "Bahamas",
     "Belize",
@@ -145,11 +147,11 @@ carib <-
 
 carib_data <-
   covid_data %>% filter(Country.Region %in% carib |
-                          Province.State %in% carib) #filter global data fro caribbean countries using list
+                          Province.State %in% carib) ######filter global data for caribbean countries using list
 carib_data$Province.State <-
-  as.character(carib_data$Province.State) #convert factor to character
+  as.character(carib_data$Province.State) #####convert factor to character
 carib_data$Country.Region <-
-  as.character(carib_data$Country.Region) #convert factor to character
+  as.character(carib_data$Country.Region) ###### factor to character
 carib_data$country <-
   if_else(
     carib_data$Province.State == "",
@@ -178,7 +180,7 @@ recov_data$country <-
 
 
 
-carib_data$logcases<-log(carib_data$cases)
+carib_data$logcases<-log(carib_data$cases) ###add log(cases) variable
 
 ######create dataframe with total cases per day######
 
@@ -188,7 +190,7 @@ carib_deaths_by_date <-
   carib_data %>% group_by(date) %>% summarise(total_deaths = sum(`death_data$deaths`))
 
 
-######create dataframe with toal cases per day per country
+######create dataframe with total cases per day per country
 
 cases_by_country <-
   carib_data %>% group_by(country, date) %>% filter(cases>0)%>%summarise(total = sum(cases))
@@ -264,7 +266,7 @@ Row
 ```{r}
 
 DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`, recovs), colnames = c("Country", "Confirmed Cases", "Deaths", "Recoveries"),rownames=FALSE, style = "bootstrap", options = list(
- columnDefs = list(list(className = 'dt-center', targets =0:3)), pageLength = 28))
+ columnDefs = list(list(className = 'dt-center', targets =0:3)), pageLength = 29))
 
 
 ```
