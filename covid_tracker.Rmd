@@ -20,6 +20,7 @@ library(readr)
 library(plotly)
 library(shinyWidgets)
 library(shiny)
+library(data.table)
 
 includeHTML(("google_analytics.html")) #call to google analytics tracking script
 
@@ -175,40 +176,26 @@ recov_data$country <-
     recov_data$Province.State
   )#create country variable combining country and province where applicable
 
+recov_data<-recov_data%>%select(country, date, recovs)
 
 
+carib_data<-left_join(carib_data, recov_data, by=c('country', 'date'))
 
 
+colnames(carib_data)<-c("Province", "Region", "Lat", "Long", "Date", "Confirmed Cases", "Deaths", "Country", 
+"Recoveries")
 
-carib_data$logcases<-log(carib_data$cases) ###add log(cases) variable
-
-######create dataframe with total cases per day######
-
-carib_cases_by_date <-
-  carib_data %>% group_by(date) %>% summarise(total_cases = sum(cases))
-carib_deaths_by_date <-
-  carib_data %>% group_by(date) %>% summarise(total_deaths = sum(`death_data$deaths`))
+carib_data$Active<-carib_data$`Confirmed Cases`-(carib_data$Deaths+carib_data$Recoveries)
 
 
-######create dataframe with total cases per day per country
+chart_data<-carib_data%>%filter(`Confirmed Cases`>0)%>%select(Country, Date,Recoveries,Active, Deaths )
 
-cases_by_country <-
-  carib_data %>% group_by(country, date) %>% filter(cases>0)%>%summarise(total = sum(cases))
-deaths_by_country <-
-  carib_data %>% group_by(country, date) %>% summarise(total = sum(`death_data$deaths`))
+chart_data<-chart_data%>%melt(id=1:2)
 
-today <- max(carib_data$date)
+chart_colour<-c("Recoveries"="darkseagreen", "Active"="lightgoldenrod1","Deaths"="coral1")
 
 
-carib_data_today<-carib_data%>%filter(date==today)%>%select(country, cases, `death_data$deaths`, Lat, Long)
-
-recov_data_today<-recov_data%>%filter(date==today)%>%select(country, recovs)
-
-carib_data_today<-left_join(carib_data_today, recov_data_today, by="country")
-
-colnames(carib_data)<-c("Province", "Region", "Lat", "Long", "Date", "Confirmed Cases", "Deaths", "Country", "Log_Cases" )
-
-
+today<-max(carib_data$Date)
 
 
 
@@ -242,7 +229,7 @@ valueBox(t_deaths, color = "danger" , icon ="fa-file-alt")
 ### Recoveries
 
 ```{r}
-total_recov<-recov_data%>%filter(date==today)%>%summarise(sum(recovs))
+total_recov<-carib_data%>%filter(Date==today)%>%summarise(sum(Recoveries))
 valueBox(total_recov, color = "success", icon ="fa-file-image")
 
 ```
@@ -265,7 +252,7 @@ Row
 -----------------------------------------------------------------------
 ```{r}
 
-DT::datatable(carib_data_today %>%select(country, cases, `death_data$deaths`, recovs), colnames = c("Country", "Confirmed Cases", "Deaths", "Recoveries"),rownames=FALSE, style = "bootstrap", options = list(
+DT::datatable(carib_data%>%filter(Date==today)%>%select(Country, `Confirmed Cases`,Active, Deaths,Recoveries), colnames = c("Country", "Confirmed Cases","Active", "Deaths", "Recoveries"),rownames=FALSE, style = "bootstrap", options = list(
  columnDefs = list(list(className = 'dt-center', targets =0:3)), pageLength = 29))
 
 
@@ -282,7 +269,6 @@ Column {.sidebar}
 
 ```{r}
 
-varSelectInput("metric","Choose Confirmed Cases or Deaths", data=carib_data%>%select(`Confirmed Cases`, Deaths), selected = "cases")
 
 ```
 
@@ -290,9 +276,9 @@ varSelectInput("metric","Choose Confirmed Cases or Deaths", data=carib_data%>%se
 
 
 ```{r}
-pickerInput(
+selectInput(
               "country",
-              label = "Select your choice of Country/Countries to view and compare trends:",
+              label = "Select Country:",
               choices = c(
                 "Cuba",
                 "Haiti",
@@ -324,9 +310,9 @@ pickerInput(
                 "Venezuela",
                 "Bermuda"
               ),
-              options = list(`actions-box` = TRUE),
+  
               selected = "Antigua and Barbuda",
-              multiple = T)
+              )
 ```
 
 
@@ -335,42 +321,49 @@ pickerInput(
 Column
 -----------------------------------------------------------------------
 
-### Country Plots
+###  
+
 
 ```{r}
 
 
-
-plot_data <-reactive({
-    carib_data%>%filter(Country %in% input$country)})
-
-
-
-
-
- 
 renderPlotly({
-p3<-ggplot() +
-geom_line(data = plot_data(), aes(
-      x = Date, y = !!input$metric, colour = Country
-    )) +
-      geom_point(data = plot_data(),
-                 aes(
-                   x = Date,
-                   y = !!input$metric,
-                   colour = Country
-                 )) +
-      theme_jr() 
 
-  ggplotly(p3)%>%
-layout(legend = list(orientation = "h",   # show entries horizontally
-                     xanchor = "center",  # use center of legend as anchor
-                     x = 0.1, y=0.95))
+
+plot_data<-chart_data%>%filter(Country==input$country)
+
+
+
+p4 <-
+  ggplot() + geom_bar(
+    data = plot_data,
+    aes(
+      x = Date,
+      y = value,
+      fill = factor(variable)
+    ),
+    stat = "identity",
+    position = "stack"
+  ) + scale_fill_manual(values = chart_colour) + 
+  scale_x_date(date_breaks = "1 day", date_labels = "%b %d", limits = c(min(plot_data$Date), today))+
+  theme_minimal() + 
+  labs(title = )+
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_text(angle = 90),
+    legend.title = element_blank(),
+    axis.title.y = element_blank()
+    
+  
+  )
+
+ggplotly(p4)%>%layout(legend=list(x=0.3, orientation="h"))
+
 })
 
 
-
-
+```
 
 
 
