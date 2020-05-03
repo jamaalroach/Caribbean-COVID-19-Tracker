@@ -345,7 +345,7 @@ p4 <-
     stat = "identity",
     position = "stack"
   ) + scale_fill_manual(values = chart_colour) + 
-  scale_x_date(date_breaks = "1 day", date_labels = "%b %d", limits = c(min(plot_data$Date), today))+
+  scale_x_date(date_breaks = "1 day", date_labels = "%b %d")+
   theme_minimal() + 
   labs(title = )+
   theme(
