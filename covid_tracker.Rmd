@@ -253,7 +253,7 @@ Row
 ```{r}
 
 DT::datatable(carib_data%>%filter(Date==today)%>%select(Country, `Confirmed Cases`,Active, Deaths,Recoveries), colnames = c("Country", "Confirmed Cases","Active", "Deaths", "Recoveries"),rownames=FALSE, style = "bootstrap", options = list(
- columnDefs = list(list(className = 'dt-center', targets =0:3)), pageLength = 29))
+ columnDefs = list(list(className = 'dt-center', targets =0:4)), pageLength = 29))
 
 
 ```
